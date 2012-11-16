@@ -1,4 +1,4 @@
 chat
 ====
 
-scoket chat
+Socket client-server chat
