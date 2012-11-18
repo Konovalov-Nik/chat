@@ -2,6 +2,8 @@ package ru.sgu.itcourses.chat.model;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.sgu.itcourses.chat.utils.SynchronizedDataInputStream;
+import ru.sgu.itcourses.chat.utils.SynchronizedDataOutputStream;
 
 
 import java.io.DataInputStream;
@@ -15,20 +17,20 @@ import java.net.Socket;
 public class ClientConnection extends Thread {
     private static final Logger LOG = LoggerFactory.getLogger(ClientConnection.class);
     private Socket socket;
-    private DataInputStream in;
-    private DataOutputStream out;
+    private SynchronizedDataInputStream in;
+    private SynchronizedDataOutputStream out;
     private User user;
 
     public ClientConnection(Socket socket) {
         this.socket = socket;
         try {
-            in = new DataInputStream(socket.getInputStream());
+            in = new SynchronizedDataInputStream(new DataInputStream(socket.getInputStream()));
         } catch (IOException e) {
             LOG.error("Cant get input stream", e);
             throw new RuntimeException(e);
         }
         try {
-            out = new DataOutputStream(socket.getOutputStream());
+            out = new SynchronizedDataOutputStream(new DataOutputStream(socket.getOutputStream()));
         } catch (IOException e) {
             LOG.error("Cant get output stream", e);
             throw new RuntimeException(e);
@@ -50,7 +52,8 @@ public class ClientConnection extends Thread {
                 String s = in.readUTF();
                 processCommand(s.trim());
             } catch (IOException e) {
-                LOG.error("Cant read line from input", e);
+                LOG.warn("Connection dropped.");
+                break;
             }
         }
     }
@@ -78,12 +81,37 @@ public class ClientConnection extends Thread {
             } else {
                 try {
                     out.writeUTF("Wrong password");
+                    socket.close();
                 } catch (IOException e) {
                     LOG.error("Cant send error message", e);
                 }
             }
         } else {
-            ServerCore.getInstance().register(login, password);
+            user = ServerCore.getInstance().register(login, password);
+        }
+    }
+
+    public void send(String text) {
+        try {
+            out.writeUTF(text);
+        } catch (IOException e) {
+            LOG.error("Cant send message " + text);
+        }
+    }
+
+    public void send(String[] text) {
+        try {
+            out.writeUTF(text);
+        } catch (IOException e) {
+            LOG.error("Cant send message " + text);
+        }
+    }
+
+    public void close() {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            //
         }
     }
 }
