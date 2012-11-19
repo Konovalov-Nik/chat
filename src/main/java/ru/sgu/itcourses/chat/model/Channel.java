@@ -24,4 +24,8 @@ public class Channel {
     public List<User> getUsers() {
         return users;
     }
+
+    public String getPassword() {
+        return password;
+    }
 }

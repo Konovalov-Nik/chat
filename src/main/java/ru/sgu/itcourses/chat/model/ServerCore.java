@@ -16,7 +16,7 @@ import static ru.sgu.itcourses.chat.utils.Utils.fillString;
  * @author Konovalov_Nik
  */
 public class ServerCore {
-    private static final Logger LOG  = LoggerFactory.getLogger(ServerCore.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ServerCore.class);
     public static final String GLOBAL_CHANNEL = "global";
     private static final int processorsCount = 2;
 
@@ -72,6 +72,7 @@ public class ServerCore {
     public void addMessage(Message message) {
         messages.add(message);
     }
+
     private Message pollMessage() {
         return messages.poll();
     }
@@ -87,7 +88,7 @@ public class ServerCore {
     private void addUserToChannel(User user, Channel channel) {
         user.getChannels().add(channel);
         channel.getUsers().add(user);
-        LOG.info("User " + user.getLogin() + " joined channel "+ channel.getName());
+        LOG.info("User " + user.getLogin() + " joined channel " + channel.getName());
     }
 
     private Channel findChannel(String channelName) {
@@ -119,11 +120,11 @@ public class ServerCore {
                 return;
             }
             switch (message.getValue()[0]) {
-                case "msg" : {
+                case "msg": {
                     processMsgCommand(message);
                     break;
                 }
-                case "ping" : {
+                case "ping": {
                     processPingCommand(message);
                     break;
                 }
@@ -144,10 +145,39 @@ public class ServerCore {
                     }
                     break;
                 }
+                case "join": {
+                    processJoinCommand(message);
+                }
             }
         }
 
 
+    }
+
+    private void processJoinCommand(Message message) {
+        String roomName = message.getValue()[1];
+        String password = "";
+        if (message.getValue().length > 2) {
+            password = message.getValue()[2];
+        }
+        Channel channel = findChannel(roomName);
+        User user = findUser(message.getFrom());
+        if (channel == null) {
+            Channel nc = createChannel(roomName, password);
+            addUserToChannel(user, nc);
+        } else  {
+            if (channel.getPassword().equals(password)) {
+                addUserToChannel(user, channel);
+            } else {
+                findConnection(user.getLogin()).send("wrong password");
+            }
+        }
+    }
+
+    private Channel createChannel(String roomName, String password) {
+        Channel channel = new Channel(roomName, password);
+        registeredChannels.add(channel);
+        return channel;
     }
 
     private void processListRoomsCommand(Message message) {
@@ -224,15 +254,15 @@ public class ServerCore {
     private String[] makeUsersList() {
         List<User> connected = getConnectedUsers();
         List<UserInfo> infos = new ArrayList<UserInfo>();
-        int maxNameWidth = 10;
-        int maxRoomsWidth = 12;
+        String[] headers = {"Nickname", "Password", "Global", "Rooms Connected"};
+        int maxNameWidth = headers[0].length();
+        int maxRoomsWidth = headers[3].length();
         for (User user : connected) {
             UserInfo info = user.getUserInfo();
             infos.add(info);
             maxNameWidth = Math.max(maxNameWidth, info.getNickname().length());
             maxRoomsWidth = Math.max(maxRoomsWidth, info.getRooms().length());
         }
-        String[] headers = {"Nickname", "Password", "Global", "Rooms Connected"};
         int[] colWidth = new int[4];
         colWidth[0] = maxNameWidth;
         colWidth[1] = headers[1].length();
@@ -246,6 +276,16 @@ public class ServerCore {
         }
         String separator = separatorBuilder.toString();
         List<String> result = new ArrayList<String>();
+        result.add(separator);
+        StringBuilder headerBuilder = new StringBuilder();
+
+        for (int i = 0; i < headers.length; i++) {
+            headerBuilder.append("|");
+            headerBuilder.append(headers[i]);
+            headerBuilder.append(fillString(colWidth[i] - headers[i].length(), ' '));
+        }
+        headerBuilder.append("|");
+        result.add(headerBuilder.toString());
         result.add(separator);
         for (UserInfo info : infos) {
             StringBuilder lineBuilder = new StringBuilder();
@@ -265,17 +305,16 @@ public class ServerCore {
 
             lineBuilder.append("|");
             lineBuilder.append(info.getRooms());
-            lineBuilder.append(fillString(colWidth[0] - info.getRooms().length(), ' '));
+            lineBuilder.append(fillString(colWidth[3] - info.getRooms().length(), ' '));
             lineBuilder.append("|");
             result.add(lineBuilder.toString());
+            result.add(separator);
         }
 
-        result.add(separator);
 
         return result.toArray(new String[result.size()]);
 
     }
-
 
 
     private List<User> getConnectedUsers() {

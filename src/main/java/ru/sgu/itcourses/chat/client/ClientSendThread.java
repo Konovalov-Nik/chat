@@ -17,6 +17,7 @@ public class ClientSendThread extends Thread {
     private static final Logger LOG = LoggerFactory.getLogger(ClientSendThread.class);
     private Scanner scanner = new Scanner(System.in);
     private SynchronizedDataOutputStream output;
+    private PingThread pingThread;
 
     @Override
     public void run() {
@@ -55,6 +56,9 @@ public class ClientSendThread extends Thread {
             output.writeUTF("connect " + login + " " + password);
             Client.getInstance().setSocket(socket);
             Client.getInstance().startReciever(socket);
+            pingThread = new PingThread();
+            pingThread.setDaemon(true);
+            pingThread.start();
         } catch (IOException e) {
             LOG.warn("Cant connect to " + host + ":" + port);
         }

@@ -103,7 +103,7 @@ public class ClientConnection extends Thread {
         try {
             out.writeUTF(text);
         } catch (IOException e) {
-            LOG.error("Cant send message " + text);
+            LOG.error("Cant send message " + text[0] + ", " + text[1]);
         }
     }
 
