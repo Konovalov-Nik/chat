@@ -1,12 +1,16 @@
 package ru.sgu.itcourses.chat.model;
 
+import com.sun.org.apache.xpath.internal.operations.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.sgu.itcourses.chat.utils.UserInfo;
 
+import java.lang.String;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static ru.sgu.itcourses.chat.utils.Utils.fillString;
 
 /**
  * @author Konovalov_Nik
@@ -219,7 +223,7 @@ public class ServerCore {
 
     private String[] makeUsersList() {
         List<User> connected = getConnectedUsers();
-        List<UserInfo> infos = new ArrayList<>();
+        List<UserInfo> infos = new ArrayList<UserInfo>();
         int maxNameWidth = 10;
         int maxRoomsWidth = 12;
         for (User user : connected) {
@@ -228,11 +232,54 @@ public class ServerCore {
             maxNameWidth = Math.max(maxNameWidth, info.getNickname().length());
             maxRoomsWidth = Math.max(maxRoomsWidth, info.getRooms().length());
         }
-        //todo
+        String[] headers = {"Nickname", "Password", "Global", "Rooms Connected"};
+        int[] colWidth = new int[4];
+        colWidth[0] = maxNameWidth;
+        colWidth[1] = headers[1].length();
+        colWidth[2] = headers[2].length();
+        colWidth[3] = maxRoomsWidth;
+        StringBuilder separatorBuilder = new StringBuilder();
+        separatorBuilder.append("+");
+        for (int w : colWidth) {
+            separatorBuilder.append(fillString(w, '-'));
+            separatorBuilder.append('+');
+        }
+        String separator = separatorBuilder.toString();
+        List<String> result = new ArrayList<String>();
+        result.add(separator);
+        for (UserInfo info : infos) {
+            StringBuilder lineBuilder = new StringBuilder();
+            lineBuilder.append("|");
+            lineBuilder.append(info.getNickname());
+            lineBuilder.append(fillString(colWidth[0] - info.getNickname().length(), ' '));
+
+            lineBuilder.append("|");
+            String paswd = info.isPassword() ? "Yes" : "No";
+            lineBuilder.append(paswd);
+            lineBuilder.append(fillString(colWidth[1] - paswd.length(), ' '));
+
+            lineBuilder.append("|");
+            String glob = info.isGlobal() ? "Yes" : "No";
+            lineBuilder.append(glob);
+            lineBuilder.append(fillString(colWidth[2] - glob.length(), ' '));
+
+            lineBuilder.append("|");
+            lineBuilder.append(info.getRooms());
+            lineBuilder.append(fillString(colWidth[0] - info.getRooms().length(), ' '));
+            lineBuilder.append("|");
+            result.add(lineBuilder.toString());
+        }
+
+        result.add(separator);
+
+        return result.toArray(new String[result.size()]);
+
     }
 
+
+
     private List<User> getConnectedUsers() {
-        List<User> result = new ArrayList<>();
+        List<User> result = new ArrayList<User>();
         long now = System.currentTimeMillis();
         for (User user : registeredUsers) {
             if (now - user.getLastPing() < ALIVE_PERIOD) {

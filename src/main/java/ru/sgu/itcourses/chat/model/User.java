@@ -11,7 +11,7 @@ import java.util.List;
 public class User {
     private String login;
     private String password;
-    private List<Channel> channels = new ArrayList<>();
+    private List<Channel> channels = new ArrayList<Channel>();
     private volatile long lastPing;
 
     public User(String login, String password) {
