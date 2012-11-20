@@ -3,10 +3,12 @@ package ru.sgu.itcourses.chat.model;
 import com.sun.org.apache.xpath.internal.operations.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.sgu.itcourses.chat.utils.RoomInfo;
 import ru.sgu.itcourses.chat.utils.UserInfo;
 
 import java.lang.String;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -42,9 +44,9 @@ public class ServerCore {
         }
     }
 
-    private List<User> registeredUsers = new ArrayList<User>();
-    private List<Channel> registeredChannels = new ArrayList<Channel>();
-    private List<ClientConnection> connections = new ArrayList<ClientConnection>();
+    private List<User> registeredUsers = Collections.synchronizedList(new ArrayList<User>());
+    private List<Channel> registeredChannels = Collections.synchronizedList(new ArrayList<Channel>());
+    private List<ClientConnection> connections = Collections.synchronizedList(new ArrayList<ClientConnection>());
     private ConcurrentLinkedQueue<Message> messages = new ConcurrentLinkedQueue<Message>();
 
     public void addConnection(ClientConnection clientConnection) {
@@ -86,9 +88,22 @@ public class ServerCore {
     }
 
     private void addUserToChannel(User user, Channel channel) {
-        user.getChannels().add(channel);
-        channel.getUsers().add(user);
-        LOG.info("User " + user.getLogin() + " joined channel " + channel.getName());
+        if (!channelContainsUser(channel, user)) {
+            user.getChannels().add(channel);
+            channel.getUsers().add(user);
+            LOG.info("User " + user.getLogin() + " joined channel " + channel.getName());
+        } else {
+            findConnection(user.getLogin()).send("Already in room " + channel.getName() + ".");
+        }
+    }
+
+    private boolean channelContainsUser(Channel channel, User user) {
+        for (User u : channel.getUsers()) {
+            if (u.getLogin().equals(user.getLogin())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Channel findChannel(String channelName) {
@@ -147,11 +162,56 @@ public class ServerCore {
                 }
                 case "join": {
                     processJoinCommand(message);
+                    break;
+                }
+                case "leave": {
+                    processLeaveCommand(message);
+                    break;
                 }
             }
         }
 
 
+    }
+
+    private void processLeaveCommand(Message message) {
+        String roomName = message.getValue()[1];
+        String userName = message.getFrom();
+        User user = findUser(userName);
+        Channel channel = findChannel(roomName);
+        if (channel == null) {
+            findConnection(userName).send("Cant leave room " + roomName + ".");
+            return;
+        }
+        removeUserFromChannel(user, channel);
+
+    }
+
+    private void removeUserFromChannel(User user, Channel channel) {
+        for (Channel c : new ArrayList<>(user.getChannels())) {
+            if (c.getName().equals(channel.getName())) {
+                user.getChannels().remove(c);
+                break;
+            }
+        }
+
+        for (User u : new ArrayList<>(channel.getUsers())) {
+            if (u.getLogin().equals(u.getLogin())) {
+                channel.getUsers().remove(u);
+                break;
+            }
+        }
+
+        removeIfEmptyChannel(channel);
+    }
+
+    private void removeIfEmptyChannel(Channel channel) {
+        if (channel.getName().equals(GLOBAL_CHANNEL)) {
+            return;
+        }
+        if (channel.getUsers().size() == 0) {
+            registeredChannels.remove(channel);
+        }
     }
 
     private void processJoinCommand(Message message) {
@@ -165,7 +225,7 @@ public class ServerCore {
         if (channel == null) {
             Channel nc = createChannel(roomName, password);
             addUserToChannel(user, nc);
-        } else  {
+        } else {
             if (channel.getPassword().equals(password)) {
                 addUserToChannel(user, channel);
             } else {
@@ -182,6 +242,72 @@ public class ServerCore {
 
     private void processListRoomsCommand(Message message) {
         ClientConnection connection = findConnection(message.getFrom());
+        if (connection == null) {
+            LOG.warn("Connection to " + message.getFrom() + " not found");
+            return;
+        }
+        String[] response = makeRoomsList();
+        connection.send(response);
+    }
+
+    private String[] makeRoomsList() {
+
+        List<RoomInfo> infos = new ArrayList<RoomInfo>();
+        String[] headers = {"Room name", "Password", "User count"};
+        int maxNameWidth = headers[0].length();
+        for (Channel channel : registeredChannels) {
+            RoomInfo info = channel.getRoomInfo();
+            infos.add(info);
+            maxNameWidth = Math.max(maxNameWidth, info.getName().length());
+        }
+        int[] colWidth = new int[3];
+        colWidth[0] = maxNameWidth;
+        colWidth[1] = headers[1].length();
+        colWidth[2] = headers[2].length();
+
+        StringBuilder separatorBuilder = new StringBuilder();
+        separatorBuilder.append("+");
+        for (int w : colWidth) {
+            separatorBuilder.append(fillString(w, '-'));
+            separatorBuilder.append('+');
+        }
+        String separator = separatorBuilder.toString();
+        List<String> result = new ArrayList<String>();
+        result.add(separator);
+        StringBuilder headerBuilder = new StringBuilder();
+
+        for (int i = 0; i < headers.length; i++) {
+            headerBuilder.append("|");
+            headerBuilder.append(headers[i]);
+            headerBuilder.append(fillString(colWidth[i] - headers[i].length(), ' '));
+        }
+        headerBuilder.append("|");
+        result.add(headerBuilder.toString());
+        result.add(separator);
+        for (RoomInfo info : infos) {
+            StringBuilder lineBuilder = new StringBuilder();
+            lineBuilder.append("|");
+            lineBuilder.append(info.getName());
+            lineBuilder.append(fillString(colWidth[0] - info.getName().length(), ' '));
+
+            lineBuilder.append("|");
+            String paswd = info.isPassword() ? "Yes" : "No";
+            lineBuilder.append(paswd);
+            lineBuilder.append(fillString(colWidth[1] - paswd.length(), ' '));
+
+            lineBuilder.append("|");
+            String cnt = String.valueOf(info.getUserCount());
+            lineBuilder.append(cnt);
+            lineBuilder.append(fillString(colWidth[2] - cnt.length(), ' '));
+            lineBuilder.append("|");
+
+            result.add(lineBuilder.toString());
+            result.add(separator);
+        }
+
+
+        return result.toArray(new String[result.size()]);
+
     }
 
     private void processListUsersCommand(Message message) {
@@ -197,6 +323,7 @@ public class ServerCore {
     private void processDisconnectCommand(Message message) {
         ClientConnection connection = findConnection(message.getFrom());
         connection.close();
+        connections.remove(connection);
     }
 
     private void processPingCommand(Message message) {
@@ -230,7 +357,16 @@ public class ServerCore {
 
     private void sendChannel(String from, String channelName, String text) {
         String finalText = "msg from @" + from + " in #" + channelName + ": " + text;
+        User sender = findUser(from);
         Channel channel = findChannel(channelName);
+        ClientConnection senderConnection = findConnection(from);
+        if (channel == null) {
+            senderConnection.send("No such channel " + channelName + ".");
+        }
+        if (!channelContainsUser(channel ,sender)) {
+            senderConnection.send("Not a member of " + channelName + ".");
+            return;
+        }
         for (User user : channel.getUsers()) {
             ClientConnection connection = findConnection(user.getLogin());
             if (connection == null) {

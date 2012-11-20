@@ -1,5 +1,7 @@
 package ru.sgu.itcourses.chat.model;
 
+import ru.sgu.itcourses.chat.utils.RoomInfo;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,5 +29,9 @@ public class Channel {
 
     public String getPassword() {
         return password;
+    }
+
+    public RoomInfo getRoomInfo() {
+        return new RoomInfo(name, !password.equals(""), users.size());
     }
 }
