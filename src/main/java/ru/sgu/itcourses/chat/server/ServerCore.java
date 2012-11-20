@@ -1,8 +1,11 @@
-package ru.sgu.itcourses.chat.model;
+package ru.sgu.itcourses.chat.server;
 
-import com.sun.org.apache.xpath.internal.operations.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.sgu.itcourses.chat.model.Channel;
+import ru.sgu.itcourses.chat.model.ClientConnection;
+import ru.sgu.itcourses.chat.model.Message;
+import ru.sgu.itcourses.chat.model.User;
 import ru.sgu.itcourses.chat.utils.RoomInfo;
 import ru.sgu.itcourses.chat.utils.UserInfo;
 
@@ -335,13 +338,18 @@ public class ServerCore {
     private void processMsgCommand(Message message) {
         String from = message.getFrom();
         String to = message.getValue()[1];
+        StringBuilder textBuilder = new StringBuilder();
+        for (int i = 2; i < message.getValue().length; i++) {
+            textBuilder.append(message.getValue()[i]);
+            textBuilder.append(" ");
+        }
         if (to.startsWith("@")) { //private
             String name = to.substring(1);
-            sendPrivate(from, name, message.getValue()[2]);
+            sendPrivate(from, name, textBuilder.toString());
         }
         if (to.startsWith("#")) { //channel
             String channel = to.substring(1);
-            sendChannel(from, channel, message.getValue()[2]);
+            sendChannel(from, channel, textBuilder.toString());
         }
     }
 

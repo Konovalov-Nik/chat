@@ -2,6 +2,7 @@ package ru.sgu.itcourses.chat.model;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.sgu.itcourses.chat.server.ServerCore;
 import ru.sgu.itcourses.chat.utils.SynchronizedDataInputStream;
 import ru.sgu.itcourses.chat.utils.SynchronizedDataOutputStream;
 

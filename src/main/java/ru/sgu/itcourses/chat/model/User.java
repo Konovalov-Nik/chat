@@ -1,5 +1,6 @@
 package ru.sgu.itcourses.chat.model;
 
+import ru.sgu.itcourses.chat.server.ServerCore;
 import ru.sgu.itcourses.chat.utils.UserInfo;
 
 import java.util.ArrayList;
