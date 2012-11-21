@@ -96,7 +96,7 @@ public class ServerCore {
             user.getChannels().add(channel);
             channel.getUsers().add(user);
             LOG.info("User " + user.getLogin() + " joined channel " + channel.getName());
-            findConnection(user.getLogin()).send("You have joined #" + channel.getName() + ".");
+            //findConnection(user.getLogin()).send("You have joined #" + channel.getName() + ".");
         } else {
             findConnection(user.getLogin()).send("Already in room " + channel.getName() + ".");
         }
@@ -140,6 +140,10 @@ public class ServerCore {
                 return;
             }
             switch (message.getValue()[0]) {
+                case "help": {
+                    processHelpCommand(message);
+                    break;
+                }
                 case "msg": {
                     processMsgCommand(message);
                     break;
@@ -179,6 +183,11 @@ public class ServerCore {
         }
 
 
+    }
+
+    private void processHelpCommand(Message message) {
+        ClientConnection connection = findConnection(message.getFrom());
+        connection.send(Utils.getHelp());
     }
 
     private void cleanUpConnections() {

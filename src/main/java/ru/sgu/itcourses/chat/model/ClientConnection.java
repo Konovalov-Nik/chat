@@ -84,13 +84,16 @@ public class ClientConnection extends Thread {
                     this.user = null;
                     out.writeUTF("Wrong password");
                     socket.close();
+
                 } catch (IOException e) {
                     LOG.error("Cant send error message", e);
                 }
+                return;
             }
         } else {
             user = ServerCore.getInstance().register(login, password);
         }
+        send("Send 'help' to get list of supported commands.");
     }
 
     public void send(String text) {

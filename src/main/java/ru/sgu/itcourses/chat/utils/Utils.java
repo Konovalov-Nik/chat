@@ -140,4 +140,22 @@ public class Utils {
         return result.toArray(new String[result.size()]);
 
     }
+
+    public static String[] getHelp() {
+        List<String> result = new ArrayList<>();
+        result.add("\t connect <host:port> <username> [<password>]   -   connect to a server or register on it if connected for the first time.");
+        result.add("\t disconnect   -   disconnect from current server.");
+        result.add("");
+        result.add("\t msg @<username>   -   send private message to user.");
+        result.add("\t msg #<roomname>   -   send message to all users in a room.");
+        result.add("");
+        result.add("\t join <roomname> [<password>]   -   join a room or create if room does not exist.");
+        result.add("\t leave <roomname>   -   leave room.");
+        result.add("");
+        result.add("\t list users   -   get list of on-line users on server and rooms they have joined.");
+        result.add("\t list rooms   -   get rooms registered on server and number of users in each.");
+        result.add("");
+        result.add("\t help   -   prints this help.");
+        return result.toArray(new String[result.size()]);
+    }
 }
