@@ -371,7 +371,7 @@ public class ServerCore {
 
     private ClientConnection findConnection(String name) {
         for (ClientConnection connection : connections) {
-            if (connection.getUser().getLogin().equals(name)) {
+            if (connection.getUser().getLogin().equals(name) && connection.isConnected()) {
                 return connection;
             }
         }

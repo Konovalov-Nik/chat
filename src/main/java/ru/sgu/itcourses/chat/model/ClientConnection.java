@@ -21,6 +21,7 @@ public class ClientConnection extends Thread {
     private SynchronizedDataInputStream in;
     private SynchronizedDataOutputStream out;
     private User user;
+    private volatile boolean closed = true;
 
     public ClientConnection(Socket socket) {
         this.socket = socket;
@@ -41,11 +42,6 @@ public class ClientConnection extends Thread {
     public User getUser() {
         return user;
     }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
     @Override
     public void run() {
         while (true) {
@@ -79,18 +75,22 @@ public class ClientConnection extends Thread {
             User user = ServerCore.getInstance().checkPasswordAndGet(login, password);
             if (user != null) {
                 this.user = user;
+                closed = false;
             } else {
                 try {
                     this.user = null;
+                    closed = true;
                     out.writeUTF("Wrong password");
                     socket.close();
 
                 } catch (IOException e) {
+                    closed = true;
                     LOG.error("Cant send error message", e);
                 }
                 return;
             }
         } else {
+            closed = false;
             user = ServerCore.getInstance().register(login, password);
         }
         send("Send 'help' to get list of supported commands.");
@@ -101,6 +101,7 @@ public class ClientConnection extends Thread {
             out.writeUTF(text);
         } catch (IOException e) {
             LOG.error("Cant send message " + text);
+            closed = true;
         }
     }
 
@@ -109,11 +110,13 @@ public class ClientConnection extends Thread {
             out.writeUTF(text);
         } catch (IOException e) {
             LOG.error("Cant send message " + text[0] + ", " + text[1]);
+            closed = true;
         }
     }
 
     public void close() {
         try {
+            closed = true;
             socket.close();
         } catch (IOException e) {
             //
@@ -121,6 +124,6 @@ public class ClientConnection extends Thread {
     }
 
     public boolean isConnected() {
-        return ! socket.isClosed();
+        return !closed;
     }
 }
