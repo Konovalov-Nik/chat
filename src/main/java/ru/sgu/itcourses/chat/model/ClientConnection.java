@@ -81,6 +81,7 @@ public class ClientConnection extends Thread {
                 this.user = user;
             } else {
                 try {
+                    this.user = null;
                     out.writeUTF("Wrong password");
                     socket.close();
                 } catch (IOException e) {
@@ -114,5 +115,9 @@ public class ClientConnection extends Thread {
         } catch (IOException e) {
             //
         }
+    }
+
+    public boolean isConnected() {
+        return ! socket.isClosed();
     }
 }

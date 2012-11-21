@@ -8,6 +8,7 @@ import ru.sgu.itcourses.chat.model.Message;
 import ru.sgu.itcourses.chat.model.User;
 import ru.sgu.itcourses.chat.utils.RoomInfo;
 import ru.sgu.itcourses.chat.utils.UserInfo;
+import ru.sgu.itcourses.chat.utils.Utils;
 
 import java.lang.String;
 import java.util.ArrayList;
@@ -95,6 +96,7 @@ public class ServerCore {
             user.getChannels().add(channel);
             channel.getUsers().add(user);
             LOG.info("User " + user.getLogin() + " joined channel " + channel.getName());
+            findConnection(user.getLogin()).send("You have joined #" + channel.getName() + ".");
         } else {
             findConnection(user.getLogin()).send("Already in room " + channel.getName() + ".");
         }
@@ -151,6 +153,8 @@ public class ServerCore {
                     break;
                 }
                 case "list": {
+                    cleanUpConnections();
+
                     switch (message.getValue()[1]) {
                         case "users": {
                             processListUsersCommand(message);
@@ -175,6 +179,14 @@ public class ServerCore {
         }
 
 
+    }
+
+    private void cleanUpConnections() {
+        for (ClientConnection connection : new ArrayList<ClientConnection>(connections)) {
+            if (!connection.isConnected()) {
+                connections.remove(connection);
+            }
+        }
     }
 
     private void processLeaveCommand(Message message) {
@@ -249,69 +261,11 @@ public class ServerCore {
             LOG.warn("Connection to " + message.getFrom() + " not found");
             return;
         }
-        String[] response = makeRoomsList();
+        String[] response = Utils.makeRoomsListResponse(registeredChannels);
         connection.send(response);
     }
 
-    private String[] makeRoomsList() {
 
-        List<RoomInfo> infos = new ArrayList<RoomInfo>();
-        String[] headers = {"Room name", "Password", "User count"};
-        int maxNameWidth = headers[0].length();
-        for (Channel channel : registeredChannels) {
-            RoomInfo info = channel.getRoomInfo();
-            infos.add(info);
-            maxNameWidth = Math.max(maxNameWidth, info.getName().length());
-        }
-        int[] colWidth = new int[3];
-        colWidth[0] = maxNameWidth;
-        colWidth[1] = headers[1].length();
-        colWidth[2] = headers[2].length();
-
-        StringBuilder separatorBuilder = new StringBuilder();
-        separatorBuilder.append("+");
-        for (int w : colWidth) {
-            separatorBuilder.append(fillString(w, '-'));
-            separatorBuilder.append('+');
-        }
-        String separator = separatorBuilder.toString();
-        List<String> result = new ArrayList<String>();
-        result.add(separator);
-        StringBuilder headerBuilder = new StringBuilder();
-
-        for (int i = 0; i < headers.length; i++) {
-            headerBuilder.append("|");
-            headerBuilder.append(headers[i]);
-            headerBuilder.append(fillString(colWidth[i] - headers[i].length(), ' '));
-        }
-        headerBuilder.append("|");
-        result.add(headerBuilder.toString());
-        result.add(separator);
-        for (RoomInfo info : infos) {
-            StringBuilder lineBuilder = new StringBuilder();
-            lineBuilder.append("|");
-            lineBuilder.append(info.getName());
-            lineBuilder.append(fillString(colWidth[0] - info.getName().length(), ' '));
-
-            lineBuilder.append("|");
-            String paswd = info.isPassword() ? "Yes" : "No";
-            lineBuilder.append(paswd);
-            lineBuilder.append(fillString(colWidth[1] - paswd.length(), ' '));
-
-            lineBuilder.append("|");
-            String cnt = String.valueOf(info.getUserCount());
-            lineBuilder.append(cnt);
-            lineBuilder.append(fillString(colWidth[2] - cnt.length(), ' '));
-            lineBuilder.append("|");
-
-            result.add(lineBuilder.toString());
-            result.add(separator);
-        }
-
-
-        return result.toArray(new String[result.size()]);
-
-    }
 
     private void processListUsersCommand(Message message) {
         ClientConnection connection = findConnection(message.getFrom());
@@ -319,7 +273,7 @@ public class ServerCore {
             LOG.warn("Connection to " + message.getFrom() + " not found");
             return;
         }
-        String[] response = makeUsersList();
+        String[] response = Utils.makeUsersListResponse(getConnectedUsers());
         connection.send(response);
     }
 
@@ -351,16 +305,6 @@ public class ServerCore {
             String channel = to.substring(1);
             sendChannel(from, channel, textBuilder.toString());
         }
-    }
-
-    private User findUser(String name) {
-        for (User user : registeredUsers) {
-            if (user.getLogin().equals(name)) {
-                return user;
-            }
-        }
-        LOG.warn("Cant find user " + name);
-        return null;
     }
 
     private void sendChannel(String from, String channelName, String text) {
@@ -395,72 +339,6 @@ public class ServerCore {
         connection.send(finalText);
     }
 
-    private String[] makeUsersList() {
-        List<User> connected = getConnectedUsers();
-        List<UserInfo> infos = new ArrayList<UserInfo>();
-        String[] headers = {"Nickname", "Password", "Global", "Rooms Connected"};
-        int maxNameWidth = headers[0].length();
-        int maxRoomsWidth = headers[3].length();
-        for (User user : connected) {
-            UserInfo info = user.getUserInfo();
-            infos.add(info);
-            maxNameWidth = Math.max(maxNameWidth, info.getNickname().length());
-            maxRoomsWidth = Math.max(maxRoomsWidth, info.getRooms().length());
-        }
-        int[] colWidth = new int[4];
-        colWidth[0] = maxNameWidth;
-        colWidth[1] = headers[1].length();
-        colWidth[2] = headers[2].length();
-        colWidth[3] = maxRoomsWidth;
-        StringBuilder separatorBuilder = new StringBuilder();
-        separatorBuilder.append("+");
-        for (int w : colWidth) {
-            separatorBuilder.append(fillString(w, '-'));
-            separatorBuilder.append('+');
-        }
-        String separator = separatorBuilder.toString();
-        List<String> result = new ArrayList<String>();
-        result.add(separator);
-        StringBuilder headerBuilder = new StringBuilder();
-
-        for (int i = 0; i < headers.length; i++) {
-            headerBuilder.append("|");
-            headerBuilder.append(headers[i]);
-            headerBuilder.append(fillString(colWidth[i] - headers[i].length(), ' '));
-        }
-        headerBuilder.append("|");
-        result.add(headerBuilder.toString());
-        result.add(separator);
-        for (UserInfo info : infos) {
-            StringBuilder lineBuilder = new StringBuilder();
-            lineBuilder.append("|");
-            lineBuilder.append(info.getNickname());
-            lineBuilder.append(fillString(colWidth[0] - info.getNickname().length(), ' '));
-
-            lineBuilder.append("|");
-            String paswd = info.isPassword() ? "Yes" : "No";
-            lineBuilder.append(paswd);
-            lineBuilder.append(fillString(colWidth[1] - paswd.length(), ' '));
-
-            lineBuilder.append("|");
-            String glob = info.isGlobal() ? "Yes" : "No";
-            lineBuilder.append(glob);
-            lineBuilder.append(fillString(colWidth[2] - glob.length(), ' '));
-
-            lineBuilder.append("|");
-            lineBuilder.append(info.getRooms());
-            lineBuilder.append(fillString(colWidth[3] - info.getRooms().length(), ' '));
-            lineBuilder.append("|");
-            result.add(lineBuilder.toString());
-            result.add(separator);
-        }
-
-
-        return result.toArray(new String[result.size()]);
-
-    }
-
-
     private List<User> getConnectedUsers() {
         List<User> result = new ArrayList<User>();
         long now = System.currentTimeMillis();
@@ -470,6 +348,16 @@ public class ServerCore {
             }
         }
         return result;
+    }
+
+    private User findUser(String name) {
+        for (User user : registeredUsers) {
+            if (user.getLogin().equals(name)) {
+                return user;
+            }
+        }
+        LOG.warn("Cant find user " + name);
+        return null;
     }
 
     private ClientConnection findConnection(String name) {
