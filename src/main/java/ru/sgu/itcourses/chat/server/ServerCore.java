@@ -193,48 +193,8 @@ public class ServerCore {
     private void cleanUpConnections() {
         for (ClientConnection connection : new ArrayList<ClientConnection>(connections)) {
             if (!connection.isConnected()) {
-                connections.remove(connection);
+                removeConnection(connection);
             }
-        }
-    }
-
-    private void processLeaveCommand(Message message) {
-        String roomName = message.getValue()[1];
-        String userName = message.getFrom();
-        User user = findUser(userName);
-        Channel channel = findChannel(roomName);
-        if (channel == null) {
-            findConnection(userName).send("Cant leave room " + roomName + ".");
-            return;
-        }
-        removeUserFromChannel(user, channel);
-
-    }
-
-    private void removeUserFromChannel(User user, Channel channel) {
-        for (Channel c : new ArrayList<>(user.getChannels())) {
-            if (c.getName().equals(channel.getName())) {
-                user.getChannels().remove(c);
-                break;
-            }
-        }
-
-        for (User u : new ArrayList<>(channel.getUsers())) {
-            if (u.getLogin().equals(u.getLogin())) {
-                channel.getUsers().remove(u);
-                break;
-            }
-        }
-
-        removeIfEmptyChannel(channel);
-    }
-
-    private void removeIfEmptyChannel(Channel channel) {
-        if (channel.getName().equals(GLOBAL_CHANNEL)) {
-            return;
-        }
-        if (channel.getUsers().size() == 0) {
-            registeredChannels.remove(channel);
         }
     }
 
@@ -246,22 +206,66 @@ public class ServerCore {
         }
         Channel channel = findChannel(roomName);
         User user = findUser(message.getFrom());
+        ClientConnection connection = findConnection(user.getLogin());
         if (channel == null) {
             Channel nc = createChannel(roomName, password);
             addUserToChannel(user, nc);
+            connection.send("You have joined #" + roomName + " [created].");
         } else {
             if (channel.getPassword().equals(password)) {
                 addUserToChannel(user, channel);
+                connection.send("You have joined #" + roomName + ".");
             } else {
-                findConnection(user.getLogin()).send("wrong password");
+                connection.send("wrong password");
             }
         }
+    }
+
+    private void processLeaveCommand(Message message) {
+        String roomName = message.getValue()[1];
+        String userName = message.getFrom();
+        User user = findUser(userName);
+        Channel channel = findChannel(roomName);
+        ClientConnection connection = findConnection(userName);
+        if (channel == null) {
+            connection.send("Cant leave room " + roomName + ".");
+            return;
+        }
+        removeUserFromChannel(user, channel);
+        connection.send("You have disconnected from #" + roomName + ".");
     }
 
     private Channel createChannel(String roomName, String password) {
         Channel channel = new Channel(roomName, password);
         registeredChannels.add(channel);
         return channel;
+    }
+
+    private void removeIfEmptyChannel(Channel channel) {
+        if (channel.getName().equals(GLOBAL_CHANNEL)) {
+            return;
+        }
+        if (channel.getUsers().size() == 0) {
+            registeredChannels.remove(channel);
+        }
+    }
+
+    private void removeUserFromChannel(User user, Channel channel) {
+        for (Channel c : new ArrayList<>(user.getChannels())) {
+            if (c.getName().equals(channel.getName())) {
+                user.getChannels().remove(c);
+                break;
+            }
+        }
+
+        for (User u : new ArrayList<>(channel.getUsers())) {
+            if (u.getLogin().equals(user.getLogin())) {
+                channel.getUsers().remove(u);
+                break;
+            }
+        }
+
+        removeIfEmptyChannel(channel);
     }
 
     private void processListRoomsCommand(Message message) {
@@ -289,6 +293,10 @@ public class ServerCore {
     private void processDisconnectCommand(Message message) {
         ClientConnection connection = findConnection(message.getFrom());
         connection.close();
+        removeConnection(connection);
+    }
+
+    public void removeConnection(ClientConnection connection) {
         connections.remove(connection);
     }
 

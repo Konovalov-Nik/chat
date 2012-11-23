@@ -26,6 +26,7 @@ public class Client {
     private void start() {
         sendThread = new ClientSendThread();
         sendThread.start();
+        System.out.println("Type 'connect <host:port> <username> [<password>]' to connect to a server.");
     }
 
     public static void main(String[] args) {

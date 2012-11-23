@@ -49,7 +49,8 @@ public class ClientConnection extends Thread {
                 String s = in.readUTF();
                 processCommand(s.trim());
             } catch (IOException e) {
-                LOG.warn("Connection dropped.");
+                LOG.info("Connection dropped.");
+                closed = true;
                 break;
             }
         }
@@ -124,6 +125,10 @@ public class ClientConnection extends Thread {
     }
 
     public boolean isConnected() {
-        return !closed;
+        boolean res = !closed && (!socket.isClosed()) && isAlive();
+        if (!res) {
+            ServerCore.getInstance().removeConnection(this);
+        }
+        return res;
     }
 }
